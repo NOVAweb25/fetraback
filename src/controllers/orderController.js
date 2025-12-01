@@ -26,7 +26,7 @@ exports.createOrder = async (req, res) => {
       status: "بانتظار تأكيد الطلب",
     });
 await User.findByIdAndUpdate(parsedData.user, { cart: [] });
-    // 🟢 إنشاء إشعار في قاعدة البيانات
+    // 🟢 إنشاء شعار في قاعدة البيانات
     await Notification.create({
       toRole: "admin", // 🔹 لكل المسؤولين
       title: "📦 طلب جديد بانتظار التأكيد",
