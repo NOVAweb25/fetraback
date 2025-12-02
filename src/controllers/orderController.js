@@ -25,7 +25,6 @@ exports.createOrder = async (req, res) => {
       orderNumber,
       status: "بانتظار تأكيد الطلب",
     });
-await User.findByIdAndUpdate(parsedData.user, { cart: [] });
 
     // 🟢 إنشاء شعار في قاعدة البيانات
     await Notification.create({
@@ -250,6 +249,7 @@ if (!cloudUrl || !cloudUrl.startsWith("http")) {
       paymentProof: req.cloudinaryUrl,
       status: "بانتظار تأكيد الطلب"
     });
+await User.findByIdAndUpdate(parsedData.user, { cart: [] });
 
     // 5) إرسال إشعار للإدارة
     await Notification.create({
