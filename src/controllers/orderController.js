@@ -158,9 +158,16 @@ if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "ت�
   console.log("🔻 بدء خصم المخزون للطلب:", oldOrder.orderNumber);
 
   for (const item of oldOrder.items) {
-    const product = await Product.findById(item.product);
 
-    if (!product) continue;
+    // 🔥 المنتج قد يكون populated أو مجرد ID
+    const productId = item.product._id || item.product;
+
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      console.log("❌ لم يتم العثور على المنتج:", productId);
+      continue;
+    }
 
     // تأكد أن المخزون يكفي
     if (product.stock < item.quantity) {
@@ -169,12 +176,15 @@ if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "ت�
       });
     }
 
-    product.stock -= item.quantity; // خصم الكمية
+    // خصم المخزون
+    product.stock -= item.quantity;
     await product.save();
+    console.log(`✔ خصم ${item.quantity} من المخزون للمنتج ${product.name}`);
   }
 
   console.log("✅ تم خصم المخزون بنجاح");
 }
+
 
     res.json(updated);
   } catch (err) {
