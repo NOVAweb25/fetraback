@@ -132,26 +132,32 @@ exports.updateOrder = async (req, res) => {
       });
 
       // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
-      if (user?.fcmToken) {
-        const message = {
-          token: user.fcmToken,
-          notification: {
-            title: "📦 تم تحديث حالة طلبك",
-            body: `تم تحديث حالة الطلب رقم ${updated.orderNumber} إلى: ${req.body.status}`,
-          },
-          data: {
-            orderId: updated._id.toString(),
-            status: req.body.status,
-            type: "order_update",
-          },
-        };
+   // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
+if (user?.fcmToken) {
+  const message = {
+    token: user.fcmToken,
+    notification: {
+      title: "📦 تم تحديث حالة طلبك",
+      body: `تم تحديث حالة الطلب رقم ${updated.orderNumber} إلى: ${req.body.status}`,
+    },
+    data: {
+      orderId: updated._id.toString(),
+      status: req.body.status,
+      type: "order_update",
+    },
+  };
 
-        await admin.messaging().send(message);
-        console.log(`✅ إشعار أُرسل للمستخدم ${user.firstName} (${req.body.status})`);
-      } else {
-        console.log(`⚠️ المستخدم ${updated.user} لا يملك fcmToken`);
-      }
-    }
+  try {
+    await admin.messaging().send(message);
+    console.log(`✅ إشعار أُرسل للمستخدم ${user.firstName} (${req.body.status})`);
+  } catch (e) {
+    console.error("⚠️ فشل إرسال إشعار FCM عند تحديث الطلب:", e.message);
+    // ما نرمي الخطأ، نخليه بس في اللوق عشان ما يرجّع 500
+  }
+} else {
+  console.log(`⚠️ المستخدم ${updated.user} لا يملك fcmToken`);
+}
+
 // =============================
 // ✨ خصم المخزون عند تأكيد الطلب
 // =============================
