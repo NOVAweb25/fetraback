@@ -102,7 +102,6 @@ exports.getOrderById = async (req, res) => {
 exports.updateOrder = async (req, res) => {
   try {
     const oldOrder = await Order.findById(req.params.id).populate("items.product");
-
     const updates = { ...req.body };
 
     const noteAllowedStatuses = ["تم تأكيد الطلب", "تم رفض الطلب"];
@@ -114,12 +113,10 @@ exports.updateOrder = async (req, res) => {
       new: true,
     }).populate("user");
 
-    // ✅ إرسال إشعار عند تغيير الحالة
+    // ========== إشعار تحديث حالة الطلب ==========
     if (req.body.status && req.body.status !== oldOrder.status) {
       const user = await User.findById(updated.user._id);
 
-
-      // 🟢 حفظ الإشعار في قاعدة البيانات
       await Notification.create({
         toUser: user._id,
         title: "📦 تحديث حالة الطلب",
@@ -131,64 +128,59 @@ exports.updateOrder = async (req, res) => {
         },
       });
 
-      // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
-  // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
-if (user?.fcmToken) {
-  const message = {
-    token: user.fcmToken,
-    notification: {
-      title: "📦 تم تحديث حالة طلبك",
-      body: `تم تحديث حالة الطلب رقم ${updated.orderNumber} إلى: ${req.body.status}`,
-    },
-    data: {
-      orderId: updated._id.toString(),
-      status: req.body.status,
-      type: "order_update",
-    },
-  };
+      // إرسال FCM
+      if (user?.fcmToken) {
+        const message = {
+          token: user.fcmToken,
+          notification: {
+            title: "📦 تم تحديث حالة طلبك",
+            body: `تم تحديث حالة الطلب رقم ${updated.orderNumber} إلى: ${req.body.status}`,
+          },
+          data: {
+            orderId: updated._id.toString(),
+            status: req.body.status,
+            type: "order_update",
+          },
+        };
 
-  try {
-    await admin.messaging().send(message);
-    console.log(`✅ إشعار أُرسل للمستخدم ${user.firstName} (${req.body.status})`);
-  } catch (e) {
-    console.error("⚠️ فشل إرسال إشعار FCM عند تحديث الطلب:", e.message);
-  }
+        try {
+          await admin.messaging().send(message);
+        } catch (e) {
+          console.error("⚠️ فشل إرسال إشعار FCM:", e.message);
+        }
+      }
+    } 
+    // 🔴 لاحظي: هنا انتهى الـ IF بالكامل — الآن نبدأ كتلة جديدة
 
-// ⬅️⬅️⬅️ هنا كان ناقص القوس
-} else {
-  console.log(`⚠️ المستخدم ${updated.user} لا يملك fcmToken`);
-}
+    // ========== خصم المخزون ==========
+    if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "تم تأكيد الطلب") {
+      console.log("🔻 بدء خصم المخزون للطلب:", oldOrder.orderNumber);
 
-// =============================
-// ✨ خصم المخزون عند تأكيد الطلب
-// =============================
-if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "تم تأكيد الطلب") {
-  console.log("🔻 بدء خصم المخزون للطلب:", oldOrder.orderNumber);
+      for (const item of oldOrder.items) {
+        const productId = item.product._id || item.product;
+        const product = await Product.findById(productId);
 
-  for (const item of oldOrder.items) {
-    const productId = item.product._id || item.product;
-    const product = await Product.findById(productId);
+        if (!product) {
+          console.log("❌ لم يتم العثور على المنتج:", productId);
+          continue;
+        }
 
-    if (!product) {
-      console.log("❌ لم يتم العثور على المنتج:", productId);
-      continue;
+        if (product.stock < item.quantity) {
+          return res.status(400).json({
+            error: `المخزون غير كافٍ للمنتج: ${product.name}`,
+          });
+        }
+
+        product.stock -= item.quantity;
+        await product.save();
+        console.log(`✔ خصم ${item.quantity} من المخزون للمنتج ${product.name}`);
+      }
+
+      console.log("✅ تم خصم المخزون بنجاح");
     }
-
-    if (product.stock < item.quantity) {
-      return res.status(400).json({
-        error: `المخزون غير كافٍ للمنتج: ${product.name}`,
-      });
-    }
-
-    product.stock -= item.quantity;
-    await product.save();
-  }
-
-  console.log("✅ تم خصم المخزون بنجاح");
-}
-
 
     res.json(updated);
+
   } catch (err) {
     console.error("❌ Error updating order:", err);
     res.status(500).json({ error: err.message });
