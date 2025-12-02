@@ -116,7 +116,8 @@ exports.updateOrder = async (req, res) => {
 
     // ✅ إرسال إشعار عند تغيير الحالة
     if (req.body.status && req.body.status !== oldOrder.status) {
-      const user = await User.findById(updated.user);
+      const user = await User.findById(updated.user._id);
+
 
       // 🟢 حفظ الإشعار في قاعدة البيانات
       await Notification.create({
