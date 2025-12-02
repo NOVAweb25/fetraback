@@ -132,7 +132,7 @@ exports.updateOrder = async (req, res) => {
       });
 
       // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
-   // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
+  // 🔸 إرسال إشعار FCM إذا المستخدم عنده توكن
 if (user?.fcmToken) {
   const message = {
     token: user.fcmToken,
@@ -152,8 +152,9 @@ if (user?.fcmToken) {
     console.log(`✅ إشعار أُرسل للمستخدم ${user.firstName} (${req.body.status})`);
   } catch (e) {
     console.error("⚠️ فشل إرسال إشعار FCM عند تحديث الطلب:", e.message);
-    // ما نرمي الخطأ، نخليه بس في اللوق عشان ما يرجّع 500
   }
+
+// ⬅️⬅️⬅️ هنا كان ناقص القوس
 } else {
   console.log(`⚠️ المستخدم ${updated.user} لا يملك fcmToken`);
 }
@@ -165,10 +166,7 @@ if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "ت�
   console.log("🔻 بدء خصم المخزون للطلب:", oldOrder.orderNumber);
 
   for (const item of oldOrder.items) {
-
-    // 🔥 المنتج قد يكون populated أو مجرد ID
     const productId = item.product._id || item.product;
-
     const product = await Product.findById(productId);
 
     if (!product) {
@@ -176,17 +174,14 @@ if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "ت�
       continue;
     }
 
-    // تأكد أن المخزون يكفي
     if (product.stock < item.quantity) {
       return res.status(400).json({
         error: `المخزون غير كافٍ للمنتج: ${product.name}`,
       });
     }
 
-    // خصم المخزون
     product.stock -= item.quantity;
     await product.save();
-    console.log(`✔ خصم ${item.quantity} من المخزون للمنتج ${product.name}`);
   }
 
   console.log("✅ تم خصم المخزون بنجاح");
