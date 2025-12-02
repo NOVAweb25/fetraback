@@ -101,7 +101,8 @@ exports.getOrderById = async (req, res) => {
 
 exports.updateOrder = async (req, res) => {
   try {
-    const oldOrder = await Order.findById(req.params.id);
+    const oldOrder = await Order.findById(req.params.id).populate("items.product");
+
     const updates = { ...req.body };
 
     const noteAllowedStatuses = ["تم تأكيد الطلب", "تم رفض الطلب"];
