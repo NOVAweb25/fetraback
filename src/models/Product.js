@@ -1,7 +1,5 @@
-//src/models/Product.js
-
+// src/models/Product.js
 const mongoose = require('mongoose');
-
 const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
@@ -12,9 +10,8 @@ const ProductSchema = new mongoose.Schema({
   images: [{ type: String }], // مصفوفة مسارات الصور الإضافية (مثل: [/uploads/img1.jpg, /uploads/img2.jpg])
   stock: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
-  extra: { type: mongoose.Schema.Types.Mixed } // flexible metadata (sizes, colors...)
+  extra: { type: mongoose.Schema.Types.Mixed }, // flexible metadata (sizes, colors...)
+  interestedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // ✅ حقل جديد للراغبين في المنتج
 }, { timestamps: true });
-
 ProductSchema.index({ name: 'text', description: 'text' });
-
 module.exports = mongoose.model('Product', ProductSchema);
