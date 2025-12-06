@@ -15,54 +15,63 @@ cloudinary.config({
 
 exports.createOrder = async (req, res) => {
   try {
+    const { paymentStatus } = req.body;
+
+    // ❌ إذا الدفع لم يتم → لا تنشئ الطلب
+    if (paymentStatus !== "paid") {
+      return res.status(400).json({
+        error: "فشل الدفع، لم يتم إنشاء الطلب"
+      });
+    }
+
+    // ✅ إذا الدفع ناجح → نصدّر رقم الطلب
     const lastOrder = await Order.findOne().sort({ createdAt: -1 });
-    const nextNum = lastOrder && lastOrder.orderNumber ? parseInt(lastOrder.orderNumber) + 1 : 1;
+    const nextNum = lastOrder && lastOrder.orderNumber
+      ? parseInt(lastOrder.orderNumber) + 1
+      : 1;
+
     const orderNumber = nextNum.toString().padStart(6, "0");
 
-    // إنشاء الطلب
+    // 🎉 إنشاء الطلب مباشرة بحالة "تم تأكيد الطلب"
     const order = await Order.create({
       ...req.body,
       orderNumber,
-      status: "بانتظار تأكيد الطلب",
+      status: "تم تأكيد الطلب" // الدفع ناجح → الطلب مؤكد تلقائيًا
     });
 
-    // 🟢 إنشاء شعار في قاعدة البيانات
+    // 🟢 إرسال إشعار إلى الإدارة
     await Notification.create({
-      toRole: "admin", // 🔹 لكل المسؤولين
-      title: "📦 طلب جديد بانتظار التأكيد",
+      toRole: "admin",
+      title: "📦 طلب جديد (مدفوع)",
       body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
-      meta: { orderId: order._id, orderNumber: order.orderNumber },
+      meta: { orderId: order._id, orderNumber: order.orderNumber }
     });
 
     // 🟣 إرسال إشعار Firebase لكل المسؤولين
     const admins = await User.find({
       role: "admin",
-      fcmToken: { $exists: true, $ne: null },
+      fcmToken: { $exists: true, $ne: null }
     });
 
     for (const adminUser of admins) {
-      const message = {
+      await admin.messaging().send({
         token: adminUser.fcmToken,
         notification: {
-          title: "📦 طلب جديد بانتظار التأكيد",
-          body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
+          title: "📦 طلب جديد (مدفوع)",
+          body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`
         },
         data: {
           orderId: order._id.toString(),
-          orderNumber: order.orderNumber,
-          type: "new_order",
-        },
-      };
-
-      try {
-        await admin.messaging().send(message);
-        console.log(`✅ تم إرسال إشعار إلى ${adminUser.firstName || "Admin"}`);
-      } catch (e) {
-        console.error(`⚠️ فشل إرسال الإشعار للمسؤول ${adminUser._id}:`, e);
-      }
+          type: "new_paid_order"
+        }
+      });
     }
 
+    // 🛒 إفراغ سلة العميل بعد الدفع
+    await User.findByIdAndUpdate(order.user, { cart: [] });
+
     res.json(order);
+
   } catch (err) {
     console.error("❌ خطأ أثناء إنشاء الطلب:", err);
     res.status(500).json({ error: err.message });
