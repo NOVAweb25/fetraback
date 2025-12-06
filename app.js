@@ -25,6 +25,8 @@ const notificationRoutes = require("./src/routes/notificationRoutes");
 const settingRoutes = require("./src/routes/settingRoutes");
 const statsRoutes = require("./src/routes/statsRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
+const paymentRoutes = require("./src/routes/payment");
+
 
 dotenv.config();
 const app = express();
@@ -51,6 +53,11 @@ app.use(
     credentials: true,
   })
 );
+app.use(
+  "/api/payment/webhook",
+  express.raw({ type: "*/*" }) // مهم جداً للـ webhook
+);
+
 
 app.use(express.json());
 
@@ -72,6 +79,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/settings", settingRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/payment", paymentRoutes);
+
 
 // 🖼️ مسار ثابت للصور
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

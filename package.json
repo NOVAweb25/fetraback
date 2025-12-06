@@ -24,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "morgan": "^1.10.1",
+    "moyasar": "^0.5.1",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "tesseract.js": "^6.0.1"

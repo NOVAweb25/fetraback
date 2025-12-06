@@ -34,6 +34,16 @@ const userSchema = new mongoose.Schema({
   aboutContent: { type: String, default: '' },
   aboutFiles: [{ name: String, extension: String, path: String }],
   aboutImages: [{ path: String, position: { x: Number, y: Number } }],
+     savedCards: [
+  {
+    token: { type: String, required: true },      // Token من Moyasar
+    brand: { type: String },                      // visa – mastercard – mada
+    last4: { type: String },                      // آخر ٤ أرقام
+    holderName: { type: String },                 // اسم صاحب البطاقة
+    createdAt: { type: Date, default: Date.now }  // تاريخ الإضافة
+  }
+],
+
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
