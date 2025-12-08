@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const orderController = require("../controllers/orderController");
 const { upload, uploadToCloudinary } = require("../middlewares/upload"); 
+const { moyasarCallback } = require("../controllers/paymentController");
 
 router.post("/", orderController.createOrder);
 router.post(
@@ -10,6 +11,9 @@ router.post(
   uploadToCloudinary,
   orderController.createOrderWithReceipt
 );
+
+
+router.post("/payment/callback", moyasarCallback);
 
 router.get("/", orderController.getOrders);
 router.get("/user/:userId", orderController.getUserOrders);

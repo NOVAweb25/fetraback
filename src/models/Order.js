@@ -23,8 +23,8 @@ const OrderSchema = new mongoose.Schema({
   tax: Number,
   delivery: Number,
   total: Number,
-  
-  // ✅ الحالة بالعربي
+
+  // حالة الطلب بالعربي
   status: {
     type: String,
     enum: [
@@ -38,12 +38,22 @@ const OrderSchema = new mongoose.Schema({
     default: 'بانتظار تأكيد الطلب'
   },
 
-  paymentProof: { type: String }, // filepath or URL
+  // 🔑 بيانات الدفع
+  paymentId: { type: String },
+  paymentStatus: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
+  paymentMethod: { type: String },
+
+  // إيصال الدفع (إذا كان تحويل بنكي)
+  paymentProof: { type: String },
+
   adminNote: String,
   transactionId: String,
+
   orderNumber: { type: String, unique: true }
+
 }, { timestamps: true });
 
+// 📌 Indexes
 OrderSchema.index({ user: 1, createdAt: -1 });
 OrderSchema.index({ orderNumber: 1 });
 

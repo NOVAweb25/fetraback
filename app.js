@@ -25,6 +25,8 @@ const notificationRoutes = require("./src/routes/notificationRoutes");
 const settingRoutes = require("./src/routes/settingRoutes");
 const statsRoutes = require("./src/routes/statsRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
+const paymentRoutes = require("./src/routes/paymentRoutes");
+
 
 
 dotenv.config();
@@ -78,7 +80,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/settings", settingRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/reviews", reviewRoutes);
-
+app.use("/api/payment", paymentRoutes);
 
 
 // 🖼️ مسار ثابت للصور
