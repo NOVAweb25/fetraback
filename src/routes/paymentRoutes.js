@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
 require("dotenv").config();
+const { moyasarCallback } = require("../controllers/paymentController");
 
 router.post("/callback", express.json(), async (req, res) => {
   try {
@@ -36,5 +37,9 @@ router.post("/callback", express.json(), async (req, res) => {
     res.status(500).json({ message: "Callback server error" });
   }
 });
+
+
+router.get("/callback", moyasarCallback);  // الـ path الآن /api/payment/callback بعد mount في app.js
+
 
 module.exports = router;

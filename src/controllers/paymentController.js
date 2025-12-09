@@ -6,29 +6,29 @@ const admin = require("../../firebase"); // موجود
 
 exports.moyasarCallback = async (req, res) => {
   try {
-    const { id, status, message } = req.query; // 🟢 استخدم req.query
-    if (!id) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Missing ID'); // redirect لو ناقص
+    const { id, status, message } = req.query; // استخدم req.query لـ GET
+    if (!id) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Missing ID');
 
-    // 📌 جلب payment من Moyasar API للتحقق (بـ secret key)
+    // جلب payment من Moyasar API للتحقق
     const paymentRes = await axios.get(`https://api.moyasar.com/v1/payments/${id}`, {
-      auth: { username: process.env.MOYASAR_SECRET_KEY } // password "" مش مطلوب
+      auth: { username: process.env.MOYASAR_SECRET_KEY }
     });
     const payment = paymentRes.data;
 
-    // 🟢 ابحث عن order بـ paymentId (افترض حفظته في frontend on_completed)
+    // ابحث عن order بـ paymentId (يجب أن يكون محفوظًا في الـ order عند الإنشاء الأولي)
     const order = await Order.findOne({ paymentId: id });
     if (!order) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Order not found');
 
     if (payment.status === "paid") {
-      // ✅ حدث order إلى paid
+      // حدث order إلى paid
       order.paymentStatus = "paid";
       order.status = "تم تأكيد الطلب";
       await order.save();
 
-      // 🛒 أفرغ cart
+      // أفرغ cart
       await User.findByIdAndUpdate(order.user, { cart: [] });
 
-      // 🟢 إرسال إشعار للأدمن (كما في createOrder)
+      // إرسال إشعار للأدمن
       await Notification.create({
         toRole: "admin",
         title: "📦 طلب جديد (مدفوع)",
@@ -36,7 +36,7 @@ exports.moyasarCallback = async (req, res) => {
         meta: { orderId: order._id, orderNumber: order.orderNumber }
       });
 
-      // 🟣 FCM للأدمن
+      // FCM للأدمن
       const admins = await User.find({ role: "admin", fcmToken: { $exists: true, $ne: null } });
       for (const adminUser of admins) {
         try {
@@ -50,12 +50,12 @@ exports.moyasarCallback = async (req, res) => {
         }
       }
 
-      // ✅ redirect لـ success
+      // redirect لـ success
       return res.redirect('https://tarafront.vercel.app/payment-success');
     } else {
-      // ❌ failed، حدث order و redirect
+      // failed، حدث order و redirect
       order.paymentStatus = "failed";
-      order.status = "تم رفض الطلب"; // أو أي status
+      order.status = "تم رفض الطلب";
       await order.save();
       return res.redirect(`https://tarafront.vercel.app/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
     }
