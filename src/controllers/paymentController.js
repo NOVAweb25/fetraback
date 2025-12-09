@@ -1,42 +1,66 @@
 const axios = require("axios");
 const Order = require("../models/Order");
+const User = require("../models/User");
+const Notification = require("../models/Notification");
+const admin = require("../../firebase"); // موجود
 
 exports.moyasarCallback = async (req, res) => {
   try {
-    const { id } = req.body;
+    const { id, status, message } = req.query; // 🟢 استخدم req.query
+    if (!id) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Missing ID'); // redirect لو ناقص
 
-    // 📌 اجلب نتيجة الدفع من Moyasar
-    const payment = await axios.get(
-      `https://api.moyasar.com/v1/payments/${id}`,
-      {
-        auth: {
-          username: process.env.MOYASAR_SECRET_KEY,
-          password: ""
+    // 📌 جلب payment من Moyasar API للتحقق (بـ secret key)
+    const paymentRes = await axios.get(`https://api.moyasar.com/v1/payments/${id}`, {
+      auth: { username: process.env.MOYASAR_SECRET_KEY } // password "" مش مطلوب
+    });
+    const payment = paymentRes.data;
+
+    // 🟢 ابحث عن order بـ paymentId (افترض حفظته في frontend on_completed)
+    const order = await Order.findOne({ paymentId: id });
+    if (!order) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Order not found');
+
+    if (payment.status === "paid") {
+      // ✅ حدث order إلى paid
+      order.paymentStatus = "paid";
+      order.status = "تم تأكيد الطلب";
+      await order.save();
+
+      // 🛒 أفرغ cart
+      await User.findByIdAndUpdate(order.user, { cart: [] });
+
+      // 🟢 إرسال إشعار للأدمن (كما في createOrder)
+      await Notification.create({
+        toRole: "admin",
+        title: "📦 طلب جديد (مدفوع)",
+        body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
+        meta: { orderId: order._id, orderNumber: order.orderNumber }
+      });
+
+      // 🟣 FCM للأدمن
+      const admins = await User.find({ role: "admin", fcmToken: { $exists: true, $ne: null } });
+      for (const adminUser of admins) {
+        try {
+          await admin.messaging().send({
+            token: adminUser.fcmToken,
+            notification: { title: "📦 طلب جديد (مدفوع)", body: `طلب رقم ${order.orderNumber}` },
+            data: { orderId: order._id.toString(), type: "new_paid_order" }
+          });
+        } catch (e) {
+          console.error("FCM Error:", e);
         }
       }
-    );
 
-    const data = payment.data;
-
-    // لو الدفع مو ناجح → تجاهل
-    if (data.status !== "paid") {
-      return res.json({ message: "الدفع غير مكتمل" });
+      // ✅ redirect لـ success
+      return res.redirect('https://tarafront.vercel.app/payment-success');
+    } else {
+      // ❌ failed، حدث order و redirect
+      order.paymentStatus = "failed";
+      order.status = "تم رفض الطلب"; // أو أي status
+      await order.save();
+      return res.redirect(`https://tarafront.vercel.app/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
     }
-
-    // نجلب orderId من metadata
-    const orderId = data.metadata.orderId;
-
-    await Order.findByIdAndUpdate(orderId, {
-      paymentStatus: "paid",
-      paymentId: data.id,
-      paymentMethod: data.source.type,  
-      status: "تم تأكيد الطلب"
-    });
-
-    return res.json({ message: "تم تحديث حالة الدفع" });
-
   } catch (err) {
     console.error("Callback Error:", err.response?.data || err.message);
-    res.status(500).json({ error: "خطأ في الكولباك" });
+    return res.redirect('https://tarafront.vercel.app/payment-failed?error=Server error');
   }
 };
