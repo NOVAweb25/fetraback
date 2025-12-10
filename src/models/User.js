@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   firstName: { type: String, required: true, trim: true },
@@ -10,10 +9,12 @@ const userSchema = new mongoose.Schema({
   location: { type: String, trim: true, default: '' },
   latitude: { type: Number, default: null },
   longitude: { type: Number, default: null },
-
+  city: { type: String, trim: true, default: '' },
+  neighborhood: { type: String, trim: true, default: '' },
+  street: { type: String, trim: true, default: '' },
+  nearestLandmark: { type: String, trim: true, default: '' },
   // 🔔 رمز إشعارات Firebase
   fcmToken: { type: String, default: null },
-
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['client', 'admin'], default: 'client' },
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
@@ -36,15 +37,13 @@ const userSchema = new mongoose.Schema({
   aboutImages: [{ path: String, position: { x: Number, y: Number } }],
      savedCards: [
   {
-    token: { type: String, required: true },      // Token من Moyasar
-    brand: { type: String },                      // visa – mastercard – mada
-    last4: { type: String },                      // آخر ٤ أرقام
-    holderName: { type: String },                 // اسم صاحب البطاقة
-    createdAt: { type: Date, default: Date.now }  // تاريخ الإضافة
+    token: { type: String, required: true }, // Token من Moyasar
+    brand: { type: String }, // visa – mastercard – mada
+    last4: { type: String }, // آخر ٤ أرقام
+    holderName: { type: String }, // اسم صاحب البطاقة
+    createdAt: { type: Date, default: Date.now } // تاريخ الإضافة
   }
 ],
-
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
-
 module.exports = mongoose.model('User', userSchema);
