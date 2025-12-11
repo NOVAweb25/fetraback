@@ -3,7 +3,6 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const admin = require("../../firebase");
 const Product = require("../models/Product");
-
 exports.createOrder = async (req, res) => {
   try {
     const { paymentStatus } = req.body;
@@ -19,14 +18,12 @@ exports.createOrder = async (req, res) => {
       ? parseInt(lastOrder.orderNumber) + 1
       : 1;
     const orderNumber = nextNum.toString().padStart(6, "0");
-
     // إنشاء الطلب بحالة "تم تأكيد الطلب"
     const order = await Order.create({
       ...req.body,
       orderNumber,
       status: "تم تأكيد الطلب"
     });
-
     // إرسال إشعار إلى الإدارة
     await Notification.create({
       toRole: "admin",
@@ -34,7 +31,6 @@ exports.createOrder = async (req, res) => {
       body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
       meta: { orderId: order._id, orderNumber: order.orderNumber }
     });
-
     // إرسال إشعار FCM للإدارة
     const admins = await User.find({
       role: "admin",
@@ -53,7 +49,6 @@ exports.createOrder = async (req, res) => {
         }
       });
     }
-
     // إفراغ سلة العميل
     await User.findByIdAndUpdate(order.user, { cart: [] });
     res.json(order);
@@ -62,7 +57,6 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
 exports.getOrders = async (req, res) => {
   let query = Order.find()
     .populate("items.product")
@@ -74,7 +68,6 @@ exports.getOrders = async (req, res) => {
   const orders = await query.sort({ createdAt: -1 }).exec();
   res.json(orders);
 };
-
 exports.getUserOrders = async (req, res) => {
   let query = Order.find({ user: req.params.userId }).populate("items.product");
   if (req.query.status) query = query.where('status').equals(req.query.status);
@@ -82,12 +75,10 @@ exports.getUserOrders = async (req, res) => {
   const orders = await query.exec();
   res.json(orders);
 };
-
 exports.getOrderById = async (req, res) => {
   const order = await Order.findById(req.params.id).populate("items.product");
   res.json(order);
 };
-
 exports.updateOrder = async (req, res) => {
   try {
     const oldOrder = await Order.findById(req.params.id).populate("items.product");
@@ -99,7 +90,6 @@ exports.updateOrder = async (req, res) => {
     const updated = await Order.findByIdAndUpdate(req.params.id, updates, {
       new: true,
     }).populate("user");
-
     // إشعار تحديث حالة الطلب
     if (req.body.status && req.body.status !== oldOrder.status) {
       const user = await User.findById(updated.user._id);
@@ -134,7 +124,6 @@ exports.updateOrder = async (req, res) => {
         }
       }
     }
-
     // خصم المخزون إذا تم التأكيد
     if (req.body.status === "تم تأكيد الطلب" && oldOrder.status !== "تم تأكيد الطلب") {
       console.log("🔻 بدء خصم المخزون للطلب:", oldOrder.orderNumber);
@@ -162,7 +151,6 @@ exports.updateOrder = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
 exports.deleteOrder = async (req, res) => {
   await Order.findByIdAndDelete(req.params.id);
   res.json({ message: "Deleted" });

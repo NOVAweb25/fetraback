@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const OrderItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   name: String,
@@ -7,14 +6,16 @@ const OrderItemSchema = new mongoose.Schema({
   mainImage: String,
   quantity: { type: Number, default: 1 }
 }, { _id: false });
-
 const ShippingSchema = new mongoose.Schema({
   name: String,
   phone: String,
   address: String,
+  city: String,
+  neighborhood: String,
+  street: String,
+  nearestLandmark: String,
   coords: { type: [Number] } // [lng, lat]
 }, { _id: false });
-
 const OrderSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   items: [OrderItemSchema],
@@ -23,7 +24,6 @@ const OrderSchema = new mongoose.Schema({
   tax: Number,
   delivery: Number,
   total: Number,
-
   // حالة الطلب بالعربي
   status: {
     type: String,
@@ -37,24 +37,17 @@ const OrderSchema = new mongoose.Schema({
     ],
     default: 'بانتظار تأكيد الطلب'
   },
-
   // 🔑 بيانات الدفع
   paymentId: { type: String },
   paymentStatus: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
   paymentMethod: { type: String },
-
   // إيصال الدفع (إذا كان تحويل بنكي)
   paymentProof: { type: String },
-
   adminNote: String,
   transactionId: String,
-
   orderNumber: { type: String, unique: true }
-
 }, { timestamps: true });
-
 // 📌 Indexes
 OrderSchema.index({ user: 1, createdAt: -1 });
 OrderSchema.index({ orderNumber: 1 });
-
 module.exports = mongoose.model('Order', OrderSchema);
