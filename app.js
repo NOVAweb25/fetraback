@@ -81,6 +81,7 @@ app.use("/api/settings", settingRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/payment", paymentRoutes);
+app.post('/test', (req, res) => res.json({ message: 'Test works!' }));
 
 
 // 🖼️ مسار ثابت للصور

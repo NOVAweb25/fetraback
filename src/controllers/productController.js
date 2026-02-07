@@ -35,15 +35,15 @@ exports.createProduct = async (req, res) => {
     console.log("Received req.body in create:", req.body);
     console.log("Received req.files in create:", req.files);
     const { name, category, section, price, description, stock, isActive } = req.body;
-    if (!name?.trim() || !category?.trim() || !section?.trim() || !price?.trim()) {
-      return res.status(400).json({ error: "البيانات الأساسية مطلوبة (name, category, section, price)" });
+    if (!name?.trim() || !section?.trim() || !price?.trim()) {
+      return res.status(400).json({ error: "البيانات الأساسية مطلوبة (name, section, price)" });
     }
     if (isNaN(Number(price)) || Number(price) < 0) {
       return res.status(400).json({ error: "السعر يجب أن يكون رقماً إيجابياً" });
     }
     const data = {
       name: name.trim(),
-      category,
+      category: category ? category : null,
       section,
       price: Number(price),
       description: description || "",
@@ -98,8 +98,8 @@ exports.updateProduct = async (req, res) => {
     console.log("Received req.body in update:", req.body);
     console.log("Received req.files in update:", req.files);
     let { name, category, section, price, description, stock, isActive, deletedImages } = req.body;
-    if (!name?.trim() || !category?.trim() || !section?.trim() || !price?.trim()) {
-      return res.status(400).json({ error: "البيانات الأساسية مطلوبة (name, category, section, price)" });
+    if (!name?.trim() || !section?.trim() || !price?.trim()) {
+      return res.status(400).json({ error: "البيانات الأساسية مطلوبة (name, section, price)" });
     }
     if (isNaN(Number(price)) || Number(price) < 0) {
       return res.status(400).json({ error: "السعر يجب أن يكون رقماً إيجابياً" });
@@ -108,7 +108,7 @@ exports.updateProduct = async (req, res) => {
     if (!existingProduct) return res.status(404).json({ error: "المنتج غير موجود" });
     const updateData = {
       name: name.trim(),
-      category,
+      category: category ? category : null,
       section,
       price: Number(price),
       description: description || "",
