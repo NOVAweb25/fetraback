@@ -2,44 +2,49 @@ const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
 require("dotenv").config();
-const { moyasarCallback } = require("../controllers/paymentController");
 
-router.post("/callback", express.json(), async (req, res) => {
+const { moyasarCallback, moyasarWebhook } = require("../controllers/paymentController");
+
+// رجوع العميل بعد الدفع
+router.get("/callback", moyasarCallback);
+
+// إشعار Moyasar للسيرفر
+router.post("/webhook", express.json(), async (req, res) => {
   try {
+
     const secret = process.env.MOYASAR_SECRET_KEY;
     const receivedSignature = req.headers["signature"];
 
     const payloadString = JSON.stringify(req.body);
+
     const expectedSignature = crypto
       .createHmac("sha256", secret)
       .update(payloadString)
       .digest("hex");
 
-    // التحقق من صحة الطلب
     if (receivedSignature !== expectedSignature) {
       return res.status(400).json({ message: "Invalid signature" });
     }
 
     const payment = req.body;
 
-    console.log("🔔 Callback Received:", payment);
+    console.log("🔔 Webhook received:", payment);
 
-    // إذا كان الدفع ناجح
     if (payment.status === "paid") {
-      // هنا تربط الدفع بالطلب وتحدّث حالة الطلب
-      // ولو تبين أكتب لك كود الإنشاء الكامل
+
+      // هنا تحدث الطلب في قاعدة البيانات
+      // Order.update...
+
     }
 
-    return res.json({ message: "Callback received", status: payment.status });
+    res.status(200).json({ received: true });
 
   } catch (err) {
-    console.error("Callback Error:", err);
-    res.status(500).json({ message: "Callback server error" });
+
+    console.error("Webhook Error:", err);
+    res.status(500).json({ message: "Webhook error" });
+
   }
 });
-
-
-router.get("/callback", moyasarCallback);  // الـ path الآن /api/payment/callback بعد mount في app.js
-
 
 module.exports = router;
