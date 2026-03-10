@@ -36,9 +36,9 @@ const path = require("path");
 const allowedOrigins = process.env.CORS_ORIGINS?.split(",") || [
   "http://localhost:3000",
   "http://localhost:5173",
-  "https://poise-frontend.onrender.com",
-  "https://tarafront-k08nk8hwr-novaweb25s-projects.vercel.app",
-  "https://tarafront.vercel.app"  // أضفت الدومين الجديد هنا كـ fallback
+  "https://fetracrochet.art",
+  "https://www.fetracrochet.art"
+ // أضفت الدومين الجديد هنا كـ fallback
 ];
 app.use(
   cors({
