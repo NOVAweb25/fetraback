@@ -4,38 +4,32 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const admin = require("../../firebase"); // موجود
 const Product = require("../models/Product");
-
 exports.moyasarCallback = async (req, res) => {
   try {
     const { id, status, message } = req.query; // استخدم req.query لـ GET
-    if (!id) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Missing ID');
-
+    if (!id) return res.redirect('https://www.fetracrochet.art/payment-failed?error=Missing ID');
     // جلب payment من Moyasar API للتحقق
     const paymentRes = await axios.get(`https://api.moyasar.com/v1/payments/${id}`, {
       auth: { username: process.env.MOYASAR_SECRET_KEY }
     });
     const payment = paymentRes.data;
-
     // تحقق إذا كان الطلب موجوداً بالفعل (idempotency)
     let order = await Order.findOne({ paymentId: id });
     if (order) {
       // إذا موجود، فقط أعد توجيه بناءً على الحالة
       if (order.paymentStatus === "paid") {
-        return res.redirect('https://tarafront.vercel.app/payment-success');
+        return res.redirect('https://www.fetracrochet.art/payment-success');
       } else {
-        return res.redirect(`https://tarafront.vercel.app/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
+        return res.redirect(`https://www.fetracrochet.art/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
       }
     }
-
     if (payment.status === "paid") {
       // استرجع بيانات الطلب من metadata
       const orderData = JSON.parse(payment.metadata.orderData || "{}");
-
       // إنشاء رقم الطلب
       const lastOrder = await Order.findOne().sort({ createdAt: -1 });
       const nextNum = lastOrder && lastOrder.orderNumber ? parseInt(lastOrder.orderNumber) + 1 : 1;
       const orderNumber = nextNum.toString().padStart(6, "0");
-
       // إنشاء الطلب
       order = await Order.create({
         user: orderData.user,
@@ -49,10 +43,8 @@ exports.moyasarCallback = async (req, res) => {
         status: "تم تأكيد الطلب",
         orderNumber,
       });
-
       // أفرغ cart
       await User.findByIdAndUpdate(order.user, { cart: [] });
-
       // خصم المخزون تلقائياً
       const populatedOrder = await Order.findById(order._id).populate("items.product");
       for (const item of populatedOrder.items) {
@@ -71,7 +63,6 @@ exports.moyasarCallback = async (req, res) => {
         await product.save();
         console.log(`✔ خصم ${item.quantity} من ${product.name}`);
       }
-
       // إرسال إشعار للأدمن
       await Notification.create({
         toRole: "admin",
@@ -79,7 +70,6 @@ exports.moyasarCallback = async (req, res) => {
         body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
         meta: { orderId: order._id, orderNumber: order.orderNumber }
       });
-
       // FCM للأدمن
       const admins = await User.find({ role: "admin", fcmToken: { $exists: true, $ne: null } });
       for (const adminUser of admins) {
@@ -93,15 +83,14 @@ exports.moyasarCallback = async (req, res) => {
           console.error("FCM Error:", e);
         }
       }
-
       // redirect لـ success
-      return res.redirect('https://tarafront.vercel.app/payment-success');
+      return res.redirect('https://www.fetracrochet.art/payment-success');
     } else {
       // failed، لا تنشئ طلب، redirect
-      return res.redirect(`https://tarafront.vercel.app/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
+      return res.redirect(`https://www.fetracrochet.art/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
     }
   } catch (err) {
     console.error("Callback Error:", err.response?.data || err.message);
-    return res.redirect('https://tarafront.vercel.app/payment-failed?error=Server error');
+    return res.redirect('https://www.fetracrochet.art/payment-failed?error=Server error');
   }
 };
