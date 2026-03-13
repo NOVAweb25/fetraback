@@ -10,7 +10,10 @@ const admin = require("../../firebase");
 const Product = require("../models/Product");
 
 // Webhook (POST) - أضف في لوحة Moyasar: https://your-api-base/api/payment/webhook
-router.post("/webhook", express.json(), async (req, res) => {
+router.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
   try {
     const secret = process.env.MOYASAR_SECRET_KEY;
     const receivedSignature = req.headers["signature"];

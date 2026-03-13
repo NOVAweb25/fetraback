@@ -54,10 +54,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(
-  "/api/payment/webhook",
-  express.raw({ type: "*/*" }) // مهم جداً للـ webhook
-);
+
 
 
 app.use(express.json());
