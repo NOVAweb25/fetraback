@@ -3,60 +3,50 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const admin = require("../../firebase");
 const Product = require("../models/Product");
+
 exports.createOrder = async (req, res) => {
   try {
-    const { paymentStatus } = req.body;
-    // إذا الدفع لم يتم → لا تنشئ الطلب
-    if (paymentStatus !== "paid") {
-      return res.status(400).json({
-        error: "فشل الدفع، لم يتم إنشاء الطلب"
-      });
-    }
-    // إنشاء رقم الطلب
+    // لم نعد نرفض "initiated"، لكن لـ Moyasar لن نستخدم هذا مباشرة
     const lastOrder = await Order.findOne().sort({ createdAt: -1 });
     const nextNum = lastOrder && lastOrder.orderNumber
       ? parseInt(lastOrder.orderNumber) + 1
       : 1;
     const orderNumber = nextNum.toString().padStart(6, "0");
-    // إنشاء الطلب بحالة "تم تأكيد الطلب"
+
     const order = await Order.create({
       ...req.body,
       orderNumber,
-      status: "تم تأكيد الطلب"
+      status: req.body.paymentStatus === "paid" ? "تم تأكيد الطلب" : "قيد الدفع", // حالة مبدئية
     });
-    // إرسال إشعار إلى الإدارة
-    await Notification.create({
-      toRole: "admin",
-      title: "📦 طلب جديد (مدفوع)",
-      body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
-      meta: { orderId: order._id, orderNumber: order.orderNumber }
-    });
-    // إرسال إشعار FCM للإدارة
-    const admins = await User.find({
-      role: "admin",
-      fcmToken: { $exists: true, $ne: null }
-    });
-    for (const adminUser of admins) {
-      await admin.messaging().send({
-        token: adminUser.fcmToken,
-        notification: {
-          title: "📦 طلب جديد (مدفوع)",
-          body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`
-        },
-        data: {
-          orderId: order._id.toString(),
-          type: "new_paid_order"
-        }
+
+    if (req.body.paymentStatus === "paid") {
+      await User.findByIdAndUpdate(order.user, { cart: [] });
+
+      await Notification.create({
+        toRole: "admin",
+        title: "📦 طلب جديد (مدفوع)",
+        body: `طلب رقم ${order.orderNumber} من ${order.shipping?.name || "عميل"}`,
+        meta: { orderId: order._id, orderNumber: order.orderNumber }
       });
+
+      const admins = await User.find({ role: "admin", fcmToken: { $exists: true, $ne: null } });
+      for (const adminUser of admins) {
+        await admin.messaging().send({
+          token: adminUser.fcmToken,
+          notification: { title: "📦 طلب جديد (مدفوع)", body: `طلب رقم ${order.orderNumber}` },
+          data: { orderId: order._id.toString(), type: "new_paid_order" }
+        });
+      }
     }
-    // إفراغ سلة العميل
-    await User.findByIdAndUpdate(order.user, { cart: [] });
+
     res.json(order);
   } catch (err) {
     console.error("❌ خطأ أثناء إنشاء الطلب:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
+// باقي الدوال كما هي (getOrders, getUserOrders, getOrderById, updateOrder, deleteOrder)
 exports.getOrders = async (req, res) => {
   let query = Order.find()
     .populate("items.product")
@@ -68,6 +58,7 @@ exports.getOrders = async (req, res) => {
   const orders = await query.sort({ createdAt: -1 }).exec();
   res.json(orders);
 };
+
 exports.getUserOrders = async (req, res) => {
   let query = Order.find({ user: req.params.userId }).populate("items.product");
   if (req.query.status) query = query.where('status').equals(req.query.status);
@@ -75,10 +66,12 @@ exports.getUserOrders = async (req, res) => {
   const orders = await query.exec();
   res.json(orders);
 };
+
 exports.getOrderById = async (req, res) => {
   const order = await Order.findById(req.params.id).populate("items.product");
   res.json(order);
 };
+
 exports.updateOrder = async (req, res) => {
   try {
     const oldOrder = await Order.findById(req.params.id).populate("items.product");
@@ -151,6 +144,7 @@ exports.updateOrder = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 exports.deleteOrder = async (req, res) => {
   await Order.findByIdAndDelete(req.params.id);
   res.json({ message: "Deleted" });

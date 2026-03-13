@@ -3,6 +3,7 @@ const Order = require("../models/Order");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const admin = require("../../firebase"); // موجود
+const Product = require("../models/Product");
 
 exports.moyasarCallback = async (req, res) => {
   try {
@@ -15,18 +16,61 @@ exports.moyasarCallback = async (req, res) => {
     });
     const payment = paymentRes.data;
 
-    // ابحث عن order بـ paymentId (يجب أن يكون محفوظًا في الـ order عند الإنشاء الأولي)
-    const order = await Order.findOne({ paymentId: id });
-    if (!order) return res.redirect('https://tarafront.vercel.app/payment-failed?error=Order not found');
+    // تحقق إذا كان الطلب موجوداً بالفعل (idempotency)
+    let order = await Order.findOne({ paymentId: id });
+    if (order) {
+      // إذا موجود، فقط أعد توجيه بناءً على الحالة
+      if (order.paymentStatus === "paid") {
+        return res.redirect('https://tarafront.vercel.app/payment-success');
+      } else {
+        return res.redirect(`https://tarafront.vercel.app/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
+      }
+    }
 
     if (payment.status === "paid") {
-      // حدث order إلى paid
-      order.paymentStatus = "paid";
-      order.status = "تم تأكيد الطلب";
-      await order.save();
+      // استرجع بيانات الطلب من metadata
+      const orderData = JSON.parse(payment.metadata.orderData || "{}");
+
+      // إنشاء رقم الطلب
+      const lastOrder = await Order.findOne().sort({ createdAt: -1 });
+      const nextNum = lastOrder && lastOrder.orderNumber ? parseInt(lastOrder.orderNumber) + 1 : 1;
+      const orderNumber = nextNum.toString().padStart(6, "0");
+
+      // إنشاء الطلب
+      order = await Order.create({
+        user: orderData.user,
+        items: orderData.items,
+        shipping: orderData.shipping,
+        subtotal: orderData.subtotal,
+        delivery: orderData.delivery,
+        total: orderData.total,
+        paymentId: id,
+        paymentStatus: "paid",
+        status: "تم تأكيد الطلب",
+        orderNumber,
+      });
 
       // أفرغ cart
       await User.findByIdAndUpdate(order.user, { cart: [] });
+
+      // خصم المخزون تلقائياً
+      const populatedOrder = await Order.findById(order._id).populate("items.product");
+      for (const item of populatedOrder.items) {
+        const productId = item.product._id || item.product;
+        const product = await Product.findById(productId);
+        if (!product) {
+          console.log("❌ لم يتم العثور على المنتج:", productId);
+          continue;
+        }
+        if (product.stock < item.quantity) {
+          // يمكن إرسال إشعار خطأ، لكن نستمر
+          console.error(`⚠️ المخزون غير كافٍ لـ ${product.name}`);
+          continue;
+        }
+        product.stock -= item.quantity;
+        await product.save();
+        console.log(`✔ خصم ${item.quantity} من ${product.name}`);
+      }
 
       // إرسال إشعار للأدمن
       await Notification.create({
@@ -53,10 +97,7 @@ exports.moyasarCallback = async (req, res) => {
       // redirect لـ success
       return res.redirect('https://tarafront.vercel.app/payment-success');
     } else {
-      // failed، حدث order و redirect
-      order.paymentStatus = "failed";
-      order.status = "تم رفض الطلب";
-      await order.save();
+      // failed، لا تنشئ طلب، redirect
       return res.redirect(`https://tarafront.vercel.app/payment-failed?message=${encodeURIComponent(message || payment.message)}`);
     }
   } catch (err) {
