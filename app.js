@@ -2,7 +2,10 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./src/config/db");
 const cors = require("cors");
+const path = require("path");          // ← أضف هذا السطر
+
 const admin = require("./firebase");
+
 admin.app()
   ? console.log("✅ Firebase Admin initialized successfully")
   : console.log("❌ Firebase Admin failed");
@@ -27,36 +30,37 @@ const statsRoutes = require("./src/routes/statsRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
 const paymentRoutes = require("./src/routes/paymentRoutes");
 
-
-
 dotenv.config();
-const app = express();
-const path = require("path");
 
-const allowedOrigins = process.env.CORS_ORIGINS?.split(",") || [
+const app = express();
+
+const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   "https://fetracrochet.art",
   "https://www.fetracrochet.art"
- // أضفت الدومين الجديد هنا كـ fallback
 ];
+
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    optionsSuccessStatus: 204,        // مهم
   })
 );
 
+// معالجة Preflight Requests صراحة (هذا السطر مهم جدًا)
+app.options('*', cors());
 
-
+// Body parser
 app.use(express.json());
 
 // Routes
@@ -78,10 +82,10 @@ app.use("/api/settings", settingRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/payment", paymentRoutes);
+
 app.post('/test', (req, res) => res.json({ message: 'Test works!' }));
 
-
-// 🖼️ مسار ثابت للصور
+// Static files for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Connect DB
